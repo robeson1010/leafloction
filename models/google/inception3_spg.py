@@ -90,7 +90,7 @@ class Inception3(nn.Module):
         self.Mixed_6d = InceptionC(768, channels_7x7=160)
         self.Mixed_6e = InceptionC(768, channels_7x7=192)
 
-        self.num_classes = args.num_classes
+        self.num_classes = num_classes
 
         #Added
         self.fc6 = nn.Sequential(
@@ -145,11 +145,6 @@ class Inception3(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, label=None):
-        if self.transform_input:
-            x = x.clone()
-            x[:, 0] = x[:, 0] * (0.229 / 0.5) + (0.485 - 0.5) / 0.5
-            x[:, 1] = x[:, 1] * (0.224 / 0.5) + (0.456 - 0.5) / 0.5
-            x[:, 2] = x[:, 2] * (0.225 / 0.5) + (0.406 - 0.5) / 0.5
         # 224 x 224 x 3
         x = self.Conv2d_1a_3x3(x)
         # 112 x 112 x 32
@@ -218,6 +213,7 @@ class Inception3(nn.Module):
         )
 
     def mark_obj(self, label_img, heatmap, label, threshold=0.5):
+#         print(heatmap.shape)
 
         if isinstance(label, (float, int)):
             np_label = label
@@ -261,18 +257,20 @@ class Inception3(nn.Module):
 
         # atten_map = logits[-1]
         mask = torch.zeros((logits_1.size()[0], 224, 224)).fill_(255).cuda()
+#         print(mask.shape,atten_map.shape)
         mask = self.get_mask(mask, atten_map)
+#         print(mask.shape)
 
         mask_side4 = torch.zeros((logits_1.size()[0], 224, 224)).fill_(255).cuda()
-        mask_side4 = self.get_mask(mask_side4, torch.squeeze(F.sigmoid(self.interp(side4))), 0.5, 0.05)
-
+        mask_side4 = self.get_mask(mask_side4, F.sigmoid(self.interp(side4)).squeeze(1), 0.5, 0.05)
         loss_side4 = self.loss_saliency(self.loss_func, self.interp(side4).squeeze(dim=1), mask)
         loss_side3 = self.loss_saliency(self.loss_func, self.interp(side3).squeeze(dim=1), mask_side4)
 
         fused_atten = (F.sigmoid(self.interp(side3)) + F.sigmoid(self.interp(side4)))/2.0
 
         back_mask = torch.zeros((logits_1.size()[0], 224, 224)).fill_(255).cuda()
-        back_mask = self.get_mask(back_mask, torch.squeeze(fused_atten.detach()), 0.7, 0.1)
+#         print(fused_atten.detach().shape)
+        back_mask = self.get_mask(back_mask, fused_atten.detach().squeeze(1), 0.7, 0.1)
         loss_back = self.loss_saliency(self.loss_func, self.interp(out_seg).squeeze(dim=1), back_mask)
 
         loss_val = loss_cls + loss_side3 + loss_side4 + loss_back

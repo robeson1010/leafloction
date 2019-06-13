@@ -2,15 +2,14 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
 
-def get_finetune_optimizer(args, model):
-    lr = args.lr
+def get_finetune_optimizer(lr, model):
     weight_list = []
     bias_list = []
     last_weight_list = []
     last_bias_list =[]
     for name,value in model.named_parameters():
         if 'cls' in name:
-            print name
+            print(name)
             if 'weight' in name:
                 last_weight_list.append(value)
             elif 'bias' in name:
@@ -58,7 +57,7 @@ def get_adam(args, model):
 
     return opt
 
-def reduce_lr(args, optimizer, epoch, factor=0.1):
+def reduce_lr(decay_points, optimizer, epoch, factor=0.1):
     # if 'coco' in args.dataset:
     #     change_points = [1,2,3,4,5]
     # elif 'imagenet' in args.dataset:
@@ -66,16 +65,16 @@ def reduce_lr(args, optimizer, epoch, factor=0.1):
     # else:
     #     change_points = None
 
-    values = args.decay_points.strip().split(',')
-    try:
-        change_points = map(lambda x: int(x.strip()), values)
-    except ValueError:
-        change_points = None
-
+#     values = decay_points.strip().split(',')
+#     try:
+#         change_points = map(lambda x: int(x.strip()), values)
+#     except ValueError:
+#         change_points = None
+    change_points = None
     if change_points is not None and epoch in change_points:
         for g in optimizer.param_groups:
             g['lr'] = g['lr']*factor
-            print epoch, g['lr']
+            print (epoch, g['lr'])
         return True
 
 def adjust_lr(args, optimizer, epoch):
